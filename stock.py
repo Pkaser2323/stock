@@ -222,14 +222,14 @@ def push_line_message(user_id, text):
         )
 
 
-def get_stock_msg(stock_ids, title="現在時間"):
+def get_stock_msg(stock_ids, title=""):
     try:
         all_data = safe_realtime_get(stock_ids)
         if not all_data.get("success"):
             return "股價查詢暫時無法連線"
 
         now_str = datetime.now(TW_TZ).strftime("%H:%M")
-        lines = [f"{title} {now_str}"]
+       
 
         for sid in stock_ids:
             data = all_data.get(sid)
@@ -256,9 +256,9 @@ def get_stock_msg(stock_ids, title="現在時間"):
                 else:
                     trend = "平盤"
                     prefix = ""
-
+            
                 lines.append(
-                    f"{name} {sid} 股價為{price:.2f} {trend} {prefix}{change_pct:.2f}%"
+                    f"{name}{sid} 現在股價為{price:.2f} {trend}"
                 )
             else:
                 lines.append(f"{sid} 查詢失敗")
