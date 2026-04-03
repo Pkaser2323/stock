@@ -222,7 +222,7 @@ def push_line_message(user_id, text):
         )
 
 
-def get_stock_msg(stock_ids, title="股價回報"):
+def get_stock_msg(stock_ids, title="現在時間"):
     try:
         all_data = safe_realtime_get(stock_ids)
         if not all_data.get("success"):
@@ -258,7 +258,7 @@ def get_stock_msg(stock_ids, title="股價回報"):
                     prefix = ""
 
                 lines.append(
-                    f"{name} {sid} {price:.2f} {trend} {prefix}{change_pct:.2f}%"
+                    f"{name} {sid} 股價為{price:.2f} {trend} {prefix}{change_pct:.2f}%"
                 )
             else:
                 lines.append(f"{sid} 查詢失敗")
