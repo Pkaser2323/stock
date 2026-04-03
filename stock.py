@@ -31,7 +31,7 @@ app = FastAPI()
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET", "")
 MY_USER_ID = os.getenv("MY_USER_ID")
-MY_STOCKS = ["2449", "3380","8096"]
+MY_STOCKS = ["2449", "3380", "8096"]
 HTTP_TIMEOUT_SECONDS = 8
 tracked_stocks = list(MY_STOCKS)
 TW_TZ = timezone(timedelta(hours=8))
@@ -52,12 +52,12 @@ def find_stock_id(user_input):
 
 def list_tracked_stocks_text():
     if not tracked_stocks:
-        return "📭 目前清單是空的"
+        return "目前清單是空的"
 
-    lines = ["📋 目前追蹤清單："]
+    lines = ["目前追蹤清單："]
     for sid in tracked_stocks:
         stock_name = twstock.codes[sid].name if sid in twstock.codes else "未知名稱"
-        lines.append(f"- {sid} {stock_name}")
+        lines.append(f"{sid} {stock_name}")
     return "\n".join(lines)
 
 
@@ -73,7 +73,7 @@ def handle_stock_command(user_text):
         return None
 
     if not args:
-        return "⚠️ 請提供股票代號或名稱，例如：/add 2330 或 /del 2330"
+        return "請提供股票代號或名稱"
 
     resolved_ids = []
     unknown_items = []
@@ -96,11 +96,11 @@ def handle_stock_command(user_text):
 
         reply_parts = []
         if added:
-            reply_parts.append(f"✅ 已加入：{', '.join(added)}")
+            reply_parts.append(f"已加入：{', '.join(added)}")
         if already_exists:
-            reply_parts.append(f"ℹ️ 已存在：{', '.join(already_exists)}")
+            reply_parts.append(f"已存在：{', '.join(already_exists)}")
         if unknown_items:
-            reply_parts.append(f"❌ 找不到：{', '.join(unknown_items)}")
+            reply_parts.append(f"找不到：{', '.join(unknown_items)}")
         reply_parts.append(list_tracked_stocks_text())
         return "\n".join(reply_parts)
 
@@ -115,17 +115,16 @@ def handle_stock_command(user_text):
 
     reply_parts = []
     if removed:
-        reply_parts.append(f"✅ 已移除：{', '.join(removed)}")
+        reply_parts.append(f"已移除：{', '.join(removed)}")
     if not_in_list:
-        reply_parts.append(f"ℹ️ 清單中沒有：{', '.join(not_in_list)}")
+        reply_parts.append(f"清單中沒有：{', '.join(not_in_list)}")
     if unknown_items:
-        reply_parts.append(f"❌ 找不到：{', '.join(unknown_items)}")
+        reply_parts.append(f"找不到：{', '.join(unknown_items)}")
     reply_parts.append(list_tracked_stocks_text())
     return "\n".join(reply_parts)
 
 
 def _build_http_session(verify_ssl=True):
-    # 關閉重試，避免憑證異常時不斷重打導致 Max retries/封鎖
     session = requests.Session()
     session.verify = verify_ssl
     no_retry = Retry(total=0, connect=0, read=0, redirect=0, status=0)
@@ -156,7 +155,6 @@ def safe_realtime_get(stock_ids):
     try:
         data = _twstock_get_raw_once(stock_ids, verify_ssl=True)
     except requests.exceptions.SSLError:
-        # 僅在 SSL 驗證失敗時 fallback 一次，不做循環重試
         print("TWSE SSL verify failed, fallback to verify=False once.")
         data = _twstock_get_raw_once(stock_ids, verify_ssl=False)
     except requests.exceptions.RequestException as e:
@@ -201,7 +199,6 @@ def is_market_open_today():
         today_tw = datetime.now(TW_TZ).strftime("%Y-%m-%d")
         return trade_date.replace("/", "-") == today_tw
 
-    # 若來源沒有日期欄位，至少要求有當日成交價，避免休市日誤推
     return realtime.get("latest_trade_price", "-") != "-"
 
 
@@ -225,13 +222,15 @@ def push_line_message(user_id, text):
         )
 
 
-def get_stock_msg(stock_ids, title="📊 股價回報"):
+def get_stock_msg(stock_ids, title="股價回報"):
     try:
         all_data = safe_realtime_get(stock_ids)
         if not all_data.get("success"):
-            return "⚠️ 股價查詢暫時無法連線"
+            return "股價查詢暫時無法連線"
 
-        msg = f"{title}\n"
+        now_str = datetime.now(TW_TZ).strftime("%H:%M")
+        lines = [f"{title} {now_str}"]
+
         for sid in stock_ids:
             data = all_data.get(sid)
             if data and data["success"]:
@@ -249,31 +248,32 @@ def get_stock_msg(stock_ids, title="📊 股價回報"):
                 change_pct = (change_amt / open_price) * 100 if open_price != 0 else 0
 
                 if change_amt > 0:
-                    status = "今天上漲"
-                    icon = "📈"
+                    trend = "上漲"
+                    prefix = "+"
                 elif change_amt < 0:
-                    status = "今天下跌"
-                    icon = "📉"
+                    trend = "下跌"
+                    prefix = ""
                 else:
-                    status = "今天平盤"
-                    icon = "➖"
+                    trend = "平盤"
+                    prefix = ""
 
-               msg_lines.append(
-                    f"{now_str} {name}({sid}) {price:.2f} {prefix}{change_pct:.2f}%"
+                lines.append(
+                    f"{name} {sid} {price:.2f} {trend} {prefix}{change_pct:.2f}%"
                 )
             else:
-                msg += f"\n❌ {sid} 查詢失敗"
-        return msg.strip()
+                lines.append(f"{sid} 查詢失敗")
+
+        return "\n".join(lines)
     except Exception as e:
         print(f"Error: {e}")
-        return "⚠️ 股價查詢暫時無法連線"
+        return "股價查詢暫時無法連線"
 
 
 @app.get("/siri/{stock_query}")
 async def siri_query(stock_query: str):
     stock_id = find_stock_id(stock_query)
     if stock_id:
-        result = get_stock_msg([stock_id], title="🚀 語音報價")
+        result = get_stock_msg([stock_id], title="語音報價")
         return {"text": result.replace("\n", " ")}
     return {"text": f"找不到 {stock_query}"}
 
@@ -309,7 +309,7 @@ def handle_message(event):
     if stock_id:
         reply_msg = get_stock_msg([stock_id])
     else:
-        reply_msg = "💡 請輸入股票代號或名稱"
+        reply_msg = "請輸入股票代號或名稱"
     reply_line_message(event.reply_token, reply_msg)
 
 
@@ -323,7 +323,7 @@ def scheduled_push():
     if not is_market_open_today():
         print("Market closed today, skip scheduled push.")
         return
-    push_line_message(MY_USER_ID, get_stock_msg(tracked_stocks, "🔔 定時持股推播"))
+    push_line_message(MY_USER_ID, get_stock_msg(tracked_stocks, "定時持股推播"))
 
 
 scheduler.start()
