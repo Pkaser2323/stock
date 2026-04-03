@@ -227,10 +227,10 @@ def get_stock_msg(stock_ids, title=""):
         all_data = safe_realtime_get(stock_ids)
         if not all_data.get("success"):
             return "股價查詢暫時無法連線"
-
+        lines = []  # ← 加這行！
         now_str = datetime.now(TW_TZ).strftime("%H:%M")
        
-
+  
         for sid in stock_ids:
             data = all_data.get(sid)
             if data and data["success"]:
@@ -242,7 +242,7 @@ def get_stock_msg(stock_ids, title=""):
                 if price_val == "-":
                     price_val = rt["best_bid_price"][0] if rt["best_bid_price"] else "0"
                 price = float(price_val)
-                lines = []  # ← 加這行！
+               
                 open_price = float(rt["open"]) if rt["open"] != "-" else price
                 change_amt = price - open_price
                 change_pct = (change_amt / open_price) * 100 if open_price != 0 else 0
