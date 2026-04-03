@@ -258,10 +258,8 @@ def get_stock_msg(stock_ids, title="📊 股價回報"):
                     status = "今天平盤"
                     icon = "➖"
 
-                msg += (
-                    f"\n📦 {name}({sid})\n"
-                    f"{icon} {status} {abs(change_pct):.2f}%\n"
-                    f"💰 現在股價為 {price:.2f}\n"
+               msg_lines.append(
+                    f"{now_str} {name}({sid}) {price:.2f} {prefix}{change_pct:.2f}%"
                 )
             else:
                 msg += f"\n❌ {sid} 查詢失敗"
